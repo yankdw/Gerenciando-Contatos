@@ -169,7 +169,3 @@ Desenvolvido seguindo as melhores práticas de:
 - UX/UI intuitiva
 - Arquitetura escalável
 
----
-
-**Nota**: Esta é uma demonstração técnica. Para uso em produção, implemente as funcionalidades de segurança e persistência adequadas.
-\`\`\`
