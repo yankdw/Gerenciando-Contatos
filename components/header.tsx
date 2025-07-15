@@ -18,8 +18,8 @@ export function Header() {
 
   if (!user) return null
 
-  const getInitials = (name: string) => {
-    return name
+  const getIniciais = (nome: string) => {
+    return nome
       .split(" ")
       .map((n) => n[0])
       .join("")
@@ -40,7 +40,7 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-blue-600 text-white">{getInitials(user.name)}</AvatarFallback>
+                  <AvatarFallback className="bg-blue-600 text-white">{getIniciais(user.name)}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>

@@ -12,18 +12,18 @@ import { toast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { Eye, EyeOff, LogIn, Users } from "lucide-react"
 
-export default function LoginPage() {
+export default function PaginaLogin() {
   const [formData, setFormData] = useState({
     email: "",
-    password: "",
+    senha: "",
   })
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [mostrarSenha, setMostrarSenha] = useState(false)
+  const [carregando, setCarregando] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setCarregando(true)
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -42,11 +42,9 @@ export default function LoginPage() {
           description: "Login realizado com sucesso!",
         })
 
-        // Salvar token no localStorage
         localStorage.setItem("auth_token", data.token)
-        localStorage.setItem("user_data", JSON.stringify(data.user))
+        localStorage.setItem("dados_usuario", JSON.stringify(data.user))
 
-        // Redirecionar para a página principal
         router.push("/")
       } else {
         toast({
@@ -62,7 +60,7 @@ export default function LoginPage() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setCarregando(false)
     }
   }
 
@@ -76,7 +74,7 @@ export default function LoginPage() {
             </div>
           </div>
           <CardTitle className="text-2xl">Sistema de Contatos</CardTitle>
-          <CardDescription>Faça login para acessar o gerenciamento de contatos</CardDescription>
+          <CardDescription>Faça login para acessar o gerenciamento</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -97,9 +95,9 @@ export default function LoginPage() {
               <div className="relative">
                 <Input
                   id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  type={mostrarSenha ? "text" : "password"}
+                  value={formData.senha}
+                  onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
                   placeholder="Digite sua senha"
                   required
                 />
@@ -108,9 +106,9 @@ export default function LoginPage() {
                   variant="ghost"
                   size="icon"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setMostrarSenha(!mostrarSenha)}
                 >
-                  {showPassword ? (
+                  {mostrarSenha ? (
                     <EyeOff className="h-4 w-4 text-muted-foreground" />
                   ) : (
                     <Eye className="h-4 w-4 text-muted-foreground" />
@@ -119,8 +117,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
+            <Button type="submit" className="w-full" disabled={carregando}>
+              {carregando ? (
                 "Entrando..."
               ) : (
                 <>

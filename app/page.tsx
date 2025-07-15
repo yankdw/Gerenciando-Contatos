@@ -32,32 +32,32 @@ import { Search, Plus, Edit, Trash2, Phone, Mail, User } from "lucide-react"
 import { AuthGuard } from "@/components/auth-guard"
 import { Header } from "@/components/header"
 
-interface Contact {
+interface Contato {
   id: number
-  name: string
+  nome: string
   email: string
-  phone: string
-  created_at: string
-  updated_at: string
+  telefone: string
+  criado_em: string
+  atualizado_em: string
 }
 
-interface ContactFormData {
-  name: string
+interface ContatoFormData {
+  nome: string
   email: string
-  phone: string
+  telefone: string
 }
 
-export default function ContactsManager() {
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingContact, setEditingContact] = useState<Contact | null>(null)
-  const [formData, setFormData] = useState<ContactFormData>({
-    name: "",
+export default function GerenciadorDeContatos() {
+  const [contatos, setContatos] = useState<Contato[]>([])
+  const [contatosFiltrados, setContatosFiltrados] = useState<Contato[]>([])
+  const [termoBusca, setTermoBusca] = useState("")
+  const [carregando, setCarregando] = useState(false)
+  const [dialogoAberto, setDialogoAberto] = useState(false)
+  const [contatoEditando, setContatoEditando] = useState<Contato | null>(null)
+  const [formData, setFormData] = useState<ContatoFormData>({
+    nome: "",
     email: "",
-    phone: "",
+    telefone: "",
   })
 
   const getAuthHeaders = () => {
@@ -68,35 +68,33 @@ export default function ContactsManager() {
     }
   }
 
-  // Carregar contatos ao montar o componente
   useEffect(() => {
-    fetchContacts()
+    buscarContatos()
   }, [])
 
-  // Filtrar contatos quando o termo de busca mudar
   useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredContacts(contacts)
+    if (termoBusca.trim() === "") {
+      setContatosFiltrados(contatos)
     } else {
-      const filtered = contacts.filter(
-        (contact) =>
-          contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          contact.phone.includes(searchTerm),
+      const filtrados = contatos.filter(
+        (contato) =>
+          contato.nome.toLowerCase().includes(termoBusca.toLowerCase()) ||
+          contato.email.toLowerCase().includes(termoBusca.toLowerCase()) ||
+          contato.telefone.includes(termoBusca),
       )
-      setFilteredContacts(filtered)
+      setContatosFiltrados(filtrados)
     }
-  }, [contacts, searchTerm])
+  }, [contatos, termoBusca])
 
-  const fetchContacts = async () => {
-    setIsLoading(true)
+  const buscarContatos = async () => {
+    setCarregando(true)
     try {
-      const response = await fetch("/api/contacts", {
+      const response = await fetch("/api/contatos", {
         headers: getAuthHeaders(),
       })
       if (response.ok) {
         const data = await response.json()
-        setContacts(data)
+        setContatos(data)
       } else {
         toast({
           title: "Erro",
@@ -111,17 +109,17 @@ export default function ContactsManager() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setCarregando(false)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setCarregando(true)
 
     try {
-      const url = editingContact ? `/api/contacts/${editingContact.id}` : "/api/contacts"
-      const method = editingContact ? "PUT" : "POST"
+      const url = contatoEditando ? `/api/contatos/${contatoEditando.id}` : "/api/contatos"
+      const method = contatoEditando ? "PUT" : "POST"
 
       const response = await fetch(url, {
         method,
@@ -132,11 +130,11 @@ export default function ContactsManager() {
       if (response.ok) {
         toast({
           title: "Sucesso",
-          description: editingContact ? "Contato atualizado com sucesso!" : "Contato criado com sucesso!",
+          description: contatoEditando ? "Contato atualizado com sucesso!" : "Contato criado com sucesso!",
         })
-        setIsDialogOpen(false)
+        setDialogoAberto(false)
         resetForm()
-        fetchContacts()
+        buscarContatos()
       } else {
         const error = await response.json()
         toast({
@@ -152,14 +150,14 @@ export default function ContactsManager() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setCarregando(false)
     }
   }
 
   const handleDelete = async (id: number) => {
-    setIsLoading(true)
+    setCarregando(true)
     try {
-      const response = await fetch(`/api/contacts/${id}`, {
+      const response = await fetch(`/api/contatos/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` },
       })
@@ -169,7 +167,7 @@ export default function ContactsManager() {
           title: "Sucesso",
           description: "Contato excluído com sucesso!",
         })
-        fetchContacts()
+        buscarContatos()
       } else {
         toast({
           title: "Erro",
@@ -184,27 +182,27 @@ export default function ContactsManager() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setCarregando(false)
     }
   }
 
-  const openEditDialog = (contact: Contact) => {
-    setEditingContact(contact)
+  const openEditDialog = (contato: Contato) => {
+    setContatoEditando(contato)
     setFormData({
-      name: contact.name,
-      email: contact.email,
-      phone: contact.phone,
+      nome: contato.nome,
+      email: contato.email,
+      telefone: contato.telefone,
     })
-    setIsDialogOpen(true)
+    setDialogoAberto(true)
   }
 
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "" })
-    setEditingContact(null)
+    setFormData({ nome: "", email: "", telefone: "" })
+    setContatoEditando(null)
   }
 
   const handleDialogClose = () => {
-    setIsDialogOpen(false)
+    setDialogoAberto(false)
     resetForm()
   }
 
@@ -212,37 +210,36 @@ export default function ContactsManager() {
     <AuthGuard>
       <div className="min-h-screen bg-gray-50">
         <Header />
-        <div className="container mx-auto p-6 max-w-6xl">
+        <main className="container mx-auto p-6 max-w-6xl">
           <div className="flex flex-col gap-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h1 className="text-3xl font-bold">Gerenciamento de Contatos</h1>
-                <p className="text-muted-foreground">Sistema interno para equipe de vendas</p>
+                <p className="text-muted-foreground">Sistema interno para a equipe de vendas</p>
               </div>
 
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <Dialog open={dialogoAberto} onOpenChange={setDialogoAberto}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => setIsDialogOpen(true)}>
+                  <Button onClick={() => setDialogoAberto(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Novo Contato
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>{editingContact ? "Editar Contato" : "Novo Contato"}</DialogTitle>
+                    <DialogTitle>{contatoEditando ? "Editar Contato" : "Novo Contato"}</DialogTitle>
                     <DialogDescription>
-                      {editingContact ? "Atualize as informações do contato." : "Adicione um novo contato ao sistema."}
+                      {contatoEditando ? "Atualize as informações do contato." : "Adicione um novo contato ao sistema."}
                     </DialogDescription>
                   </DialogHeader>
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Nome *</Label>
+                      <Label htmlFor="nome">Nome *</Label>
                       <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        id="nome"
+                        value={formData.nome}
+                        onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                         placeholder="Digite o nome completo"
                         required
                       />
@@ -261,11 +258,11 @@ export default function ContactsManager() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone *</Label>
+                      <Label htmlFor="telefone">Telefone *</Label>
                       <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        id="telefone"
+                        value={formData.telefone}
+                        onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
                         placeholder="Digite o telefone"
                         required
                       />
@@ -275,52 +272,50 @@ export default function ContactsManager() {
                       <Button type="button" variant="outline" onClick={handleDialogClose}>
                         Cancelar
                       </Button>
-                      <Button type="submit" disabled={isLoading}>
-                        {isLoading ? "Salvando..." : editingContact ? "Atualizar" : "Criar"}
+                      <Button type="submit" disabled={carregando}>
+                        {carregando ? "Salvando..." : contatoEditando ? "Atualizar" : "Criar"}
                       </Button>
                     </div>
                   </form>
                 </DialogContent>
               </Dialog>
-            </div>
+            </header>
 
-            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Buscar contatos por nome, e-mail ou telefone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={termoBusca}
+                onChange={(e) => setTermoBusca(e.target.value)}
                 className="pl-10"
               />
             </div>
 
-            {/* Contacts List */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {isLoading && contacts.length === 0 ? (
+            <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {carregando && contatos.length === 0 ? (
                 <div className="col-span-full text-center py-8">
                   <p className="text-muted-foreground">Carregando contatos...</p>
                 </div>
-              ) : filteredContacts.length === 0 ? (
+              ) : contatosFiltrados.length === 0 ? (
                 <div className="col-span-full text-center py-8">
                   <p className="text-muted-foreground">
-                    {searchTerm ? "Nenhum contato encontrado para sua busca." : "Nenhum contato cadastrado ainda."}
+                    {termoBusca ? "Nenhum contato encontrado para sua busca." : "Nenhum contato cadastrado ainda."}
                   </p>
                 </div>
               ) : (
-                filteredContacts.map((contact) => (
-                  <Card key={contact.id} className="hover:shadow-md transition-shadow">
+                contatosFiltrados.map((contato) => (
+                  <Card key={contato.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-muted-foreground" />
-                          <CardTitle className="text-lg">{contact.name}</CardTitle>
+                          <CardTitle className="text-lg">{contato.nome}</CardTitle>
                         </div>
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => openEditDialog(contact)}
+                            onClick={() => openEditDialog(contato)}
                             className="h-8 w-8"
                           >
                             <Edit className="w-4 h-4" />
@@ -339,14 +334,14 @@ export default function ContactsManager() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Tem certeza que deseja excluir o contato "{contact.name}"? Esta ação não pode ser
+                                  Tem certeza que deseja excluir o contato "{contato.nome}"? Esta ação não pode ser
                                   desfeita.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => handleDelete(contact.id)}
+                                  onClick={() => handleDelete(contato.id)}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
                                   Excluir
@@ -360,35 +355,34 @@ export default function ContactsManager() {
                     <CardContent className="space-y-2">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Mail className="w-4 h-4" />
-                        <span>{contact.email}</span>
+                        <span>{contato.email}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Phone className="w-4 h-4" />
-                        <span>{contact.phone}</span>
+                        <span>{contato.telefone}</span>
                       </div>
                       <div className="text-xs text-muted-foreground pt-2">
-                        Criado em: {new Date(contact.created_at).toLocaleDateString("pt-BR")}
+                        Criado em: {new Date(contato.criado_em).toLocaleDateString("pt-BR")}
                       </div>
                     </CardContent>
                   </Card>
                 ))
               )}
-            </div>
+            </section>
 
-            {/* Stats */}
-            {contacts.length > 0 && (
-              <div className="text-center text-sm text-muted-foreground">
-                {searchTerm ? (
+            {contatos.length > 0 && (
+              <footer className="text-center text-sm text-muted-foreground">
+                {termoBusca ? (
                   <p>
-                    Mostrando {filteredContacts.length} de {contacts.length} contatos
+                    Mostrando {contatosFiltrados.length} de {contatos.length} contatos
                   </p>
                 ) : (
-                  <p>Total de {contacts.length} contatos cadastrados</p>
+                  <p>Total de {contatos.length} contatos cadastrados</p>
                 )}
-              </div>
+              </footer>
             )}
           </div>
-        </div>
+        </main>
       </div>
       <Toaster />
     </AuthGuard>

@@ -3,63 +3,63 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
-interface User {
+interface Usuario {
   id: number
-  name: string
+  nome: string
   email: string
-  role: string
+  perfil: string
 }
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [usuario, setUsuario] = useState<Usuario | null>(null)
+  const [carregando, setCarregando] = useState(true)
+  const [autenticado, setAutenticado] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    checkAuth()
+    verificarAutenticacao()
   }, [])
 
-  const checkAuth = async () => {
+  const verificarAutenticacao = async () => {
     try {
       const token = localStorage.getItem("auth_token")
-      const userData = localStorage.getItem("user_data")
+      const dadosUsuario = localStorage.getItem("dados_usuario")
 
-      if (!token || !userData) {
-        setIsLoading(false)
+      if (!token || !dadosUsuario) {
+        setCarregando(false)
         return
       }
 
       // Verificar se o token ainda é válido
-      const response = await fetch("/api/auth/verify", {
+      const response = await fetch("/api/auth/verificar", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
 
       if (response.ok) {
-        const parsedUser = JSON.parse(userData)
-        setUser(parsedUser)
-        setIsAuthenticated(true)
+        const usuarioParseado = JSON.parse(dadosUsuario)
+        setUsuario(usuarioParseado)
+        setAutenticado(true)
       } else {
         // Token inválido, limpar dados
         localStorage.removeItem("auth_token")
-        localStorage.removeItem("user_data")
+        localStorage.removeItem("dados_usuario")
       }
     } catch (error) {
       console.error("Erro ao verificar autenticação:", error)
       localStorage.removeItem("auth_token")
-      localStorage.removeItem("user_data")
+      localStorage.removeItem("dados_usuario")
     } finally {
-      setIsLoading(false)
+      setCarregando(false)
     }
   }
 
-  const login = (token: string, userData: User) => {
+  const login = (token: string, dadosUsuario: Usuario) => {
     localStorage.setItem("auth_token", token)
-    localStorage.setItem("user_data", JSON.stringify(userData))
-    setUser(userData)
-    setIsAuthenticated(true)
+    localStorage.setItem("dados_usuario", JSON.stringify(dadosUsuario))
+    setUsuario(dadosUsuario)
+    setAutenticado(true)
   }
 
   const logout = async () => {
@@ -69,9 +69,9 @@ export function useAuth() {
       console.error("Erro no logout:", error)
     } finally {
       localStorage.removeItem("auth_token")
-      localStorage.removeItem("user_data")
-      setUser(null)
-      setIsAuthenticated(false)
+      localStorage.removeItem("dados_usuario")
+      setUsuario(null)
+      setAutenticado(false)
       router.push("/login")
     }
   }
@@ -81,12 +81,12 @@ export function useAuth() {
   }
 
   return {
-    user,
-    isLoading,
-    isAuthenticated,
+    usuario,
+    carregando,
+    autenticado,
     login,
     logout,
     getAuthToken,
-    checkAuth,
+    verificarAutenticacao,
   }
 }
