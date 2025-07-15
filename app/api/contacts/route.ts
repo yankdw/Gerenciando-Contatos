@@ -1,130 +1,117 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { verify } from "jsonwebtoken"
+import mysql from "mysql2/promise"
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production"
+// Database connection configuration
+const dbConfig = {
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "contact_management",
+  port: Number.parseInt(process.env.DB_PORT || "3306"),
+}
 
-function verifyToken(request: NextRequest) {
-  const authHeader = request.headers.get("authorization")
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new Error("Token não fornecido")
-  }
-
-  const token = authHeader.substring(7)
-
+// Create database connection
+async function getConnection() {
   try {
-    return verify(token, JWT_SECRET)
+    const connection = await mysql.createConnection(dbConfig)
+    return connection
   } catch (error) {
-    throw new Error("Token inválido")
+    console.error("Database connection error:", error)
+    throw new Error("Failed to connect to database")
   }
 }
 
-// Simulação de banco de dados em memória (em produção seria MySQL)
-const contacts: Array<{
-  id: number
-  name: string
-  email: string
-  phone: string
-  created_at: string
-  updated_at: string
-}> = [
-  {
-    id: 1,
-    name: "João Silva",
-    email: "joao.silva@email.com",
-    phone: "(11) 99999-9999",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    name: "Maria Santos",
-    email: "maria.santos@email.com",
-    phone: "(11) 88888-8888",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-]
-
-let nextId = 3
-
-// Função para validar email
-function isValidEmail(email: string): boolean {
+// Validation functions
+function validateEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
-// Função para validar dados do contato
 function validateContactData(data: any) {
   const errors: string[] = []
 
-  if (!data.name || typeof data.name !== "string" || data.name.trim().length === 0) {
+  if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
     errors.push("Nome é obrigatório")
   }
 
-  if (!data.email || typeof data.email !== "string" || data.email.trim().length === 0) {
-    errors.push("E-mail é obrigatório")
-  } else if (!isValidEmail(data.email.trim())) {
-    errors.push("E-mail deve ter um formato válido")
+  if (!data.email || typeof data.email !== "string" || !data.email.trim()) {
+    errors.push("Email é obrigatório")
+  } else if (!validateEmail(data.email)) {
+    errors.push("Email deve ser válido")
   }
 
-  if (!data.phone || typeof data.phone !== "string" || data.phone.trim().length === 0) {
+  if (!data.phone || typeof data.phone !== "string" || !data.phone.trim()) {
     errors.push("Telefone é obrigatório")
   }
 
   return errors
 }
 
-// GET /api/contacts - Listar todos os contatos
-export async function GET(request: NextRequest) {
+// GET /api/contacts - List all contacts
+export async function GET() {
+  let connection
+
   try {
-    verifyToken(request)
+    connection = await getConnection()
+
+    const [rows] = await connection.execute(
+      "SELECT id, name, email, phone, created_at, updated_at FROM contacts ORDER BY created_at DESC",
+    )
+
+    return NextResponse.json(rows)
   } catch (error) {
-    return NextResponse.json({ message: error.message }, { status: 401 })
-  }
-  try {
-    return NextResponse.json(contacts)
-  } catch (error) {
+    console.error("Error fetching contacts:", error)
     return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 })
+  } finally {
+    if (connection) {
+      await connection.end()
+    }
   }
 }
 
-// POST /api/contacts - Criar novo contato
+// POST /api/contacts - Create new contact
 export async function POST(request: NextRequest) {
-  try {
-    verifyToken(request)
-  } catch (error) {
-    return NextResponse.json({ message: error.message }, { status: 401 })
-  }
+  let connection
+
   try {
     const body = await request.json()
 
-    // Validar dados
+    // Validate input data
     const validationErrors = validateContactData(body)
     if (validationErrors.length > 0) {
-      return NextResponse.json({ message: validationErrors.join(", ") }, { status: 400 })
+      return NextResponse.json({ message: "Dados inválidos", errors: validationErrors }, { status: 400 })
     }
 
-    // Verificar se email já existe
-    const existingContact = contacts.find((contact) => contact.email.toLowerCase() === body.email.trim().toLowerCase())
-    if (existingContact) {
-      return NextResponse.json({ message: "Já existe um contato com este e-mail" }, { status: 400 })
+    connection = await getConnection()
+
+    // Check if email already exists
+    const [existingContacts] = await connection.execute("SELECT id FROM contacts WHERE email = ?", [body.email.trim()])
+
+    if (Array.isArray(existingContacts) && existingContacts.length > 0) {
+      return NextResponse.json({ message: "Email já está em uso" }, { status: 409 })
     }
 
-    // Criar novo contato
-    const newContact = {
-      id: nextId++,
-      name: body.name.trim(),
-      email: body.email.trim().toLowerCase(),
-      phone: body.phone.trim(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
+    // Insert new contact
+    const [result] = await connection.execute(
+      "INSERT INTO contacts (name, email, phone, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
+      [body.name.trim(), body.email.trim(), body.phone.trim()],
+    )
 
-    contacts.push(newContact)
+    const insertResult = result as mysql.ResultSetHeader
 
-    return NextResponse.json(newContact, { status: 201 })
+    // Fetch the created contact
+    const [newContact] = await connection.execute(
+      "SELECT id, name, email, phone, created_at, updated_at FROM contacts WHERE id = ?",
+      [insertResult.insertId],
+    )
+
+    return NextResponse.json(Array.isArray(newContact) ? newContact[0] : newContact, { status: 201 })
   } catch (error) {
+    console.error("Error creating contact:", error)
     return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 })
+  } finally {
+    if (connection) {
+      await connection.end()
+    }
   }
 }

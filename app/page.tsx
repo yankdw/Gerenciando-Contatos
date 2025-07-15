@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -15,86 +15,46 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { toast } from "@/hooks/use-toast"
-import { Toaster } from "@/components/ui/toaster"
-import { Search, Plus, Edit, Trash2, Phone, Mail, User } from "lucide-react"
-import { AuthGuard } from "@/components/auth-guard"
-import { Header } from "@/components/header"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Trash2, Edit, Plus, Phone, Mail, User } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
-interface Contato {
+interface Contact {
   id: number
-  nome: string
+  name: string
   email: string
-  telefone: string
-  criado_em: string
-  atualizado_em: string
+  phone: string
+  created_at: string
+  updated_at: string
 }
 
-interface ContatoFormData {
-  nome: string
+interface ContactFormData {
+  name: string
   email: string
-  telefone: string
+  phone: string
 }
 
-export default function GerenciadorDeContatos() {
-  const [contatos, setContatos] = useState<Contato[]>([])
-  const [contatosFiltrados, setContatosFiltrados] = useState<Contato[]>([])
-  const [termoBusca, setTermoBusca] = useState("")
-  const [carregando, setCarregando] = useState(false)
-  const [dialogoAberto, setDialogoAberto] = useState(false)
-  const [contatoEditando, setContatoEditando] = useState<Contato | null>(null)
-  const [formData, setFormData] = useState<ContatoFormData>({
-    nome: "",
+export default function ContactManagement() {
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingContact, setEditingContact] = useState<Contact | null>(null)
+  const [formData, setFormData] = useState<ContactFormData>({
+    name: "",
     email: "",
-    telefone: "",
+    phone: "",
   })
+  const [formErrors, setFormErrors] = useState<Partial<ContactFormData>>({})
+  const { toast } = useToast()
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("auth_token")
-    return {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-    }
-  }
-
-  useEffect(() => {
-    buscarContatos()
-  }, [])
-
-  useEffect(() => {
-    if (termoBusca.trim() === "") {
-      setContatosFiltrados(contatos)
-    } else {
-      const filtrados = contatos.filter(
-        (contato) =>
-          contato.nome.toLowerCase().includes(termoBusca.toLowerCase()) ||
-          contato.email.toLowerCase().includes(termoBusca.toLowerCase()) ||
-          contato.telefone.includes(termoBusca),
-      )
-      setContatosFiltrados(filtrados)
-    }
-  }, [contatos, termoBusca])
-
-  const buscarContatos = async () => {
-    setCarregando(true)
+  // Fetch contacts
+  const fetchContacts = async () => {
     try {
-      const response = await fetch("/api/contatos", {
-        headers: getAuthHeaders(),
-      })
+      const response = await fetch("/api/contacts")
       if (response.ok) {
         const data = await response.json()
-        setContatos(data)
+        setContacts(data)
       } else {
         toast({
           title: "Erro",
@@ -109,32 +69,62 @@ export default function GerenciadorDeContatos() {
         variant: "destructive",
       })
     } finally {
-      setCarregando(false)
+      setLoading(false)
     }
   }
 
+  useEffect(() => {
+    fetchContacts()
+  }, [])
+
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Partial<ContactFormData> = {}
+
+    if (!formData.name.trim()) {
+      errors.name = "Nome é obrigatório"
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = "Email é obrigatório"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = "Email deve ser válido"
+    }
+
+    if (!formData.phone.trim()) {
+      errors.phone = "Telefone é obrigatório"
+    }
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setCarregando(true)
+
+    if (!validateForm()) return
 
     try {
-      const url = contatoEditando ? `/api/contatos/${contatoEditando.id}` : "/api/contatos"
-      const method = contatoEditando ? "PUT" : "POST"
+      const url = editingContact ? `/api/contacts/${editingContact.id}` : "/api/contacts"
+      const method = editingContact ? "PUT" : "POST"
 
       const response = await fetch(url, {
         method,
-        headers: getAuthHeaders(),
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(formData),
       })
 
       if (response.ok) {
         toast({
           title: "Sucesso",
-          description: contatoEditando ? "Contato atualizado com sucesso!" : "Contato criado com sucesso!",
+          description: editingContact ? "Contato atualizado com sucesso" : "Contato criado com sucesso",
         })
-        setDialogoAberto(false)
+        fetchContacts()
         resetForm()
-        buscarContatos()
+        setIsDialogOpen(false)
       } else {
         const error = await response.json()
         toast({
@@ -149,25 +139,24 @@ export default function GerenciadorDeContatos() {
         description: "Erro de conexão",
         variant: "destructive",
       })
-    } finally {
-      setCarregando(false)
     }
   }
 
+  // Handle delete
   const handleDelete = async (id: number) => {
-    setCarregando(true)
+    if (!confirm("Tem certeza que deseja excluir este contato?")) return
+
     try {
-      const response = await fetch(`/api/contatos/${id}`, {
+      const response = await fetch(`/api/contacts/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` },
       })
 
       if (response.ok) {
         toast({
           title: "Sucesso",
-          description: "Contato excluído com sucesso!",
+          description: "Contato excluído com sucesso",
         })
-        buscarContatos()
+        fetchContacts()
       } else {
         toast({
           title: "Erro",
@@ -181,210 +170,200 @@ export default function GerenciadorDeContatos() {
         description: "Erro de conexão",
         variant: "destructive",
       })
-    } finally {
-      setCarregando(false)
     }
   }
 
-  const openEditDialog = (contato: Contato) => {
-    setContatoEditando(contato)
-    setFormData({
-      nome: contato.nome,
-      email: contato.email,
-      telefone: contato.telefone,
-    })
-    setDialogoAberto(true)
-  }
-
+  // Reset form
   const resetForm = () => {
-    setFormData({ nome: "", email: "", telefone: "" })
-    setContatoEditando(null)
+    setFormData({ name: "", email: "", phone: "" })
+    setFormErrors({})
+    setEditingContact(null)
   }
 
-  const handleDialogClose = () => {
-    setDialogoAberto(false)
+  // Handle edit
+  const handleEdit = (contact: Contact) => {
+    setEditingContact(contact)
+    setFormData({
+      name: contact.name,
+      email: contact.email,
+      phone: contact.phone,
+    })
+    setIsDialogOpen(true)
+  }
+
+  // Handle new contact
+  const handleNew = () => {
     resetForm()
+    setIsDialogOpen(true)
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Carregando contatos...</div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <main className="container mx-auto p-6 max-w-6xl">
-          <div className="flex flex-col gap-6">
-            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h1 className="text-3xl font-bold">Gerenciamento de Contatos</h1>
-                <p className="text-muted-foreground">Sistema interno para a equipe de vendas</p>
+    <div className="container mx-auto p-6 max-w-6xl">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Gerenciamento de Contatos</h1>
+          <p className="text-muted-foreground mt-2">Sistema interno para cadastro e consulta de clientes</p>
+        </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNew} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Novo Contato
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editingContact ? "Editar Contato" : "Novo Contato"}</DialogTitle>
+              <DialogDescription>
+                {editingContact
+                  ? "Atualize as informações do contato abaixo."
+                  : "Preencha as informações do novo contato."}
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Nome completo"
+                />
+                {formErrors.name && <p className="text-sm text-red-500">{formErrors.name}</p>}
               </div>
 
-              <Dialog open={dialogoAberto} onOpenChange={setDialogoAberto}>
-                <DialogTrigger asChild>
-                  <Button onClick={() => setDialogoAberto(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Novo Contato
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{contatoEditando ? "Editar Contato" : "Novo Contato"}</DialogTitle>
-                    <DialogDescription>
-                      {contatoEditando ? "Atualize as informações do contato." : "Adicione um novo contato ao sistema."}
-                    </DialogDescription>
-                  </DialogHeader>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="email@exemplo.com"
+                />
+                {formErrors.email && <p className="text-sm text-red-500">{formErrors.email}</p>}
+              </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="nome">Nome *</Label>
-                      <Input
-                        id="nome"
-                        value={formData.nome}
-                        onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                        placeholder="Digite o nome completo"
-                        required
-                      />
-                    </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Telefone *</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="(11) 99999-9999"
+                />
+                {formErrors.phone && <p className="text-sm text-red-500">{formErrors.phone}</p>}
+              </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="email">E-mail *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="Digite o e-mail"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="telefone">Telefone *</Label>
-                      <Input
-                        id="telefone"
-                        value={formData.telefone}
-                        onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                        placeholder="Digite o telefone"
-                        required
-                      />
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-4">
-                      <Button type="button" variant="outline" onClick={handleDialogClose}>
-                        Cancelar
-                      </Button>
-                      <Button type="submit" disabled={carregando}>
-                        {carregando ? "Salvando..." : contatoEditando ? "Atualizar" : "Criar"}
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </header>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Buscar contatos por nome, e-mail ou telefone..."
-                value={termoBusca}
-                onChange={(e) => setTermoBusca(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {carregando && contatos.length === 0 ? (
-                <div className="col-span-full text-center py-8">
-                  <p className="text-muted-foreground">Carregando contatos...</p>
-                </div>
-              ) : contatosFiltrados.length === 0 ? (
-                <div className="col-span-full text-center py-8">
-                  <p className="text-muted-foreground">
-                    {termoBusca ? "Nenhum contato encontrado para sua busca." : "Nenhum contato cadastrado ainda."}
-                  </p>
-                </div>
-              ) : (
-                contatosFiltrados.map((contato) => (
-                  <Card key={contato.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-muted-foreground" />
-                          <CardTitle className="text-lg">{contato.nome}</CardTitle>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDialog(contato)}
-                            className="h-8 w-8"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Tem certeza que deseja excluir o contato "{contato.nome}"? Esta ação não pode ser
-                                  desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(contato.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Mail className="w-4 h-4" />
-                        <span>{contato.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Phone className="w-4 h-4" />
-                        <span>{contato.telefone}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground pt-2">
-                        Criado em: {new Date(contato.criado_em).toLocaleDateString("pt-BR")}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </section>
-
-            {contatos.length > 0 && (
-              <footer className="text-center text-sm text-muted-foreground">
-                {termoBusca ? (
-                  <p>
-                    Mostrando {contatosFiltrados.length} de {contatos.length} contatos
-                  </p>
-                ) : (
-                  <p>Total de {contatos.length} contatos cadastrados</p>
-                )}
-              </footer>
-            )}
-          </div>
-        </main>
+              <div className="flex gap-2 pt-4">
+                <Button type="submit" className="flex-1">
+                  {editingContact ? "Atualizar" : "Criar"} Contato
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
-      <Toaster />
-    </AuthGuard>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Contatos Cadastrados
+          </CardTitle>
+          <CardDescription>
+            {contacts.length} contato{contacts.length !== 1 ? "s" : ""} encontrado{contacts.length !== 1 ? "s" : ""}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {contacts.length === 0 ? (
+            <div className="text-center py-12">
+              <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum contato encontrado</h3>
+              <p className="text-muted-foreground mb-4">Comece adicionando seu primeiro contato.</p>
+              <Button onClick={handleNew} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Adicionar Contato
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Telefone</TableHead>
+                    <TableHead>Criado em</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contacts.map((contact) => (
+                    <TableRow key={contact.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="h-4 w-4" />
+                          </div>
+                          {contact.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {contact.email}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          {contact.phone}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{new Date(contact.created_at).toLocaleDateString("pt-BR")}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(contact)} className="gap-1">
+                            <Edit className="h-3 w-3" />
+                            Editar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(contact.id)}
+                            className="gap-1 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Excluir
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
