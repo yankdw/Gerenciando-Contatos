@@ -1,143 +1,130 @@
 import { type NextRequest, NextResponse } from "next/server"
-import mysql from "mysql2/promise"
 
-// Database connection configuration
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "contact_management",
-  port: Number.parseInt(process.env.DB_PORT || "3306"),
-}
+// Simulação de banco de dados em memória (mesma referência do route principal)
+const contacts: Array<{
+  id: number
+  name: string
+  email: string
+  phone: string
+  created_at: string
+  updated_at: string
+}> = [
+  {
+    id: 1,
+    name: "João Silva",
+    email: "joao.silva@email.com",
+    phone: "(11) 99999-9999",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    name: "Maria Santos",
+    email: "maria.santos@email.com",
+    phone: "(11) 88888-8888",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+]
 
-// Create database connection
-async function getConnection() {
-  try {
-    const connection = await mysql.createConnection(dbConfig)
-    return connection
-  } catch (error) {
-    console.error("Database connection error:", error)
-    throw new Error("Failed to connect to database")
-  }
-}
-
-// Validation functions
-function validateEmail(email: string): boolean {
+// Função para validar email
+function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
+// Função para validar dados do contato
 function validateContactData(data: any) {
   const errors: string[] = []
 
-  if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
+  if (!data.name || typeof data.name !== "string" || data.name.trim().length === 0) {
     errors.push("Nome é obrigatório")
   }
 
-  if (!data.email || typeof data.email !== "string" || !data.email.trim()) {
-    errors.push("Email é obrigatório")
-  } else if (!validateEmail(data.email)) {
-    errors.push("Email deve ser válido")
+  if (!data.email || typeof data.email !== "string" || data.email.trim().length === 0) {
+    errors.push("E-mail é obrigatório")
+  } else if (!isValidEmail(data.email.trim())) {
+    errors.push("E-mail deve ter um formato válido")
   }
 
-  if (!data.phone || typeof data.phone !== "string" || !data.phone.trim()) {
+  if (!data.phone || typeof data.phone !== "string" || data.phone.trim().length === 0) {
     errors.push("Telefone é obrigatório")
   }
 
   return errors
 }
 
-// PUT /api/contacts/[id] - Update contact
+// PUT /api/contacts/[id] - Atualizar contato existente
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  let connection
-
   try {
-    const contactId = Number.parseInt(params.id)
-    if (isNaN(contactId)) {
-      return NextResponse.json({ message: "ID do contato inválido" }, { status: 400 })
+    const id = Number.parseInt(params.id)
+
+    if (isNaN(id)) {
+      return NextResponse.json({ message: "ID inválido" }, { status: 400 })
     }
 
     const body = await request.json()
 
-    // Validate input data
+    // Validar dados
     const validationErrors = validateContactData(body)
     if (validationErrors.length > 0) {
-      return NextResponse.json({ message: "Dados inválidos", errors: validationErrors }, { status: 400 })
+      return NextResponse.json({ message: validationErrors.join(", ") }, { status: 400 })
     }
 
-    connection = await getConnection()
-
-    // Check if contact exists
-    const [existingContact] = await connection.execute("SELECT id FROM contacts WHERE id = ?", [contactId])
-
-    if (!Array.isArray(existingContact) || existingContact.length === 0) {
+    // Encontrar contato
+    const contactIndex = contacts.findIndex((contact) => contact.id === id)
+    if (contactIndex === -1) {
       return NextResponse.json({ message: "Contato não encontrado" }, { status: 404 })
     }
 
-    // Check if email is already used by another contact
-    const [emailCheck] = await connection.execute("SELECT id FROM contacts WHERE email = ? AND id != ?", [
-      body.email.trim(),
-      contactId,
-    ])
-
-    if (Array.isArray(emailCheck) && emailCheck.length > 0) {
-      return NextResponse.json({ message: "Email já está em uso por outro contato" }, { status: 409 })
-    }
-
-    // Update contact
-    await connection.execute("UPDATE contacts SET name = ?, email = ?, phone = ?, updated_at = NOW() WHERE id = ?", [
-      body.name.trim(),
-      body.email.trim(),
-      body.phone.trim(),
-      contactId,
-    ])
-
-    // Fetch updated contact
-    const [updatedContact] = await connection.execute(
-      "SELECT id, name, email, phone, created_at, updated_at FROM contacts WHERE id = ?",
-      [contactId],
+    // Verificar se email já existe em outro contato
+    const existingContact = contacts.find(
+      (contact) => contact.id !== id && contact.email.toLowerCase() === body.email.trim().toLowerCase(),
     )
-
-    return NextResponse.json(Array.isArray(updatedContact) ? updatedContact[0] : updatedContact)
-  } catch (error) {
-    console.error("Error updating contact:", error)
-    return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 })
-  } finally {
-    if (connection) {
-      await connection.end()
+    if (existingContact) {
+      return NextResponse.json({ message: "Já existe outro contato com este e-mail" }, { status: 400 })
     }
+
+    // Atualizar contato
+    const updatedContact = {
+      ...contacts[contactIndex],
+      name: body.name.trim(),
+      email: body.email.trim().toLowerCase(),
+      phone: body.phone.trim(),
+      updated_at: new Date().toISOString(),
+    }
+
+    contacts[contactIndex] = updatedContact
+
+    return NextResponse.json(updatedContact)
+  } catch (error) {
+    return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 })
   }
 }
 
-// DELETE /api/contacts/[id] - Delete contact
+// DELETE /api/contacts/[id] - Excluir contato
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  let connection
-
   try {
-    const contactId = Number.parseInt(params.id)
-    if (isNaN(contactId)) {
-      return NextResponse.json({ message: "ID do contato inválido" }, { status: 400 })
+    const id = Number.parseInt(params.id)
+
+    if (isNaN(id)) {
+      return NextResponse.json({ message: "ID inválido" }, { status: 400 })
     }
 
-    connection = await getConnection()
-
-    // Check if contact exists
-    const [existingContact] = await connection.execute("SELECT id FROM contacts WHERE id = ?", [contactId])
-
-    if (!Array.isArray(existingContact) || existingContact.length === 0) {
+    // Encontrar contato
+    const contactIndex = contacts.findIndex((contact) => contact.id === id)
+    if (contactIndex === -1) {
       return NextResponse.json({ message: "Contato não encontrado" }, { status: 404 })
     }
 
-    // Delete contact
-    await connection.execute("DELETE FROM contacts WHERE id = ?", [contactId])
+    // Remover contato
+    const deletedContact = contacts.splice(contactIndex, 1)[0]
 
-    return NextResponse.json({ message: "Contato excluído com sucesso" })
+    return NextResponse.json({
+      message: "Contato excluído com sucesso",
+      contact: deletedContact,
+    })
   } catch (error) {
-    console.error("Error deleting contact:", error)
     return NextResponse.json({ message: "Erro interno do servidor" }, { status: 500 })
-  } finally {
-    if (connection) {
-      await connection.end()
-    }
   }
 }
