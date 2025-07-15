@@ -65,7 +65,7 @@ interface Contact {
 1. **Clone o repositório**
 \`\`\`bash
 git clone <url-do-repositorio>
-cd contacts-manager
+cd gerenciar-contatos
 \`\`\`
 
 2. **Instale as dependências**
@@ -99,8 +99,8 @@ npm run lint   # Executa linting do código
 ### Para Ambiente de Produção (MySQL)
 
 1. **Execute o script SQL**
-\`\`\`bash
-mysql -u root -p < scripts/database-setup.sql
+\`\`\`
+npm install mysql2 --legacy-peer-deps
 \`\`\`
 
 2. **Configure as variáveis de ambiente**
@@ -109,11 +109,11 @@ Crie um arquivo \`.env.local\`:
 DATABASE_URL="mysql://usuario:senha@localhost:3306/contacts_manager"
 \`\`\`
 
-3. **Substitua a simulação em memória**
-Nos arquivos de API (\`app/api/contacts/route.ts\` e \`app/api/contacts/[id]/route.ts\`), substitua a simulação em memória por conexão real com MySQL usando uma biblioteca como \`mysql2\` ou \`prisma\`.
+3. **Abra o xampp**
+Ative no xampp, o MySQL e Apache (aperte admin no apache)
 
-### Demonstração Atual
-A aplicação atual usa um banco de dados simulado em memória para facilitar a demonstração, mas está estruturada para fácil migração para MySQL real.
+3. **Clone o banco de dados**
+Copie o banco de dados de /scripts/database-setup.sql e clone, com o nome de "contacts-manager".
 
 ## 🎨 Interface do Usuário
 
@@ -145,20 +145,6 @@ A interface inclui:
 - Barra de busca com filtro em tempo real
 - Confirmação de exclusão
 - Toasts de feedback para todas as operações
-
-## 🚀 Próximos Passos (Roadmap)
-
-Para uma implementação completa em produção, considere:
-
-- [ ] Integração real com MySQL
-- [ ] Autenticação JWT
-- [ ] Paginação para grandes volumes
-- [ ] Upload de avatar
-- [ ] Testes unitários e de integração
-- [ ] Docker para containerização
-- [ ] Deploy em produção (Vercel/Railway)
-- [ ] Área de relatórios
-- [ ] Backup automático
 
 ## 👨‍💻 Desenvolvedor
 
