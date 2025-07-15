@@ -15,7 +15,7 @@ import { Eye, EyeOff, LogIn, Users } from "lucide-react"
 export default function PaginaLogin() {
   const [formData, setFormData] = useState({
     email: "",
-    senha: "",
+    password: "",
   })
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [carregando, setCarregando] = useState(false)
@@ -96,8 +96,8 @@ export default function PaginaLogin() {
                 <Input
                   id="password"
                   type={mostrarSenha ? "text" : "password"}
-                  value={formData.senha}
-                  onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
+                  value={formData.password} // Corrigido
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })} // Corrigido
                   placeholder="Digite sua senha"
                   required
                 />
